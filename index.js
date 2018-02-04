@@ -84,7 +84,7 @@ module.exports = async function query(db, frame, options) {
 
   // frame the subjects
   const framed = [];
-  _frame(state, Object.keys(state.subjects).sort(), frame, framed, null);
+  _frame(state, Object.keys(state.subjects).sort(), expandedFrame, framed, null);
 
   // compact result (force @graph option to true, skip expansion,
   // check for linked embeds)
