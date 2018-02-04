@@ -1,5 +1,5 @@
 {
-  "name": "jsonld-frame-query",
+  "name": "levelgraph-jsonld-query",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
