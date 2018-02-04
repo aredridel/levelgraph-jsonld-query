@@ -497,7 +497,7 @@ function _removePreserve(ctx, input, options) {
  */
 function _getFrameFlag(frame, options, name) {
   const flag = '@' + name;
-  const rval = (flag in frame ? frame[flag][0] : options[name]);
+  let rval = (flag in frame ? frame[flag][0] : options[name]);
   if (name == 'embed') {
     // default is "@last"
     // backwards-compatibility support for "embed" maps:
