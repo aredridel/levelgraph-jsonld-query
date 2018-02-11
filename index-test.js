@@ -30,11 +30,36 @@ runner.test('empty query is rejected', async () => {
   }
 })
 
-runner.test('Simple query is accepted', async () => {
-    await jldq(db, {
-      '@context': {
-        'test': 'https://example.org/'
-      }
-    })
+runner.test('null query is accepted', async () => {
+  const res = await jldq(db, {
+    '@context': {
+      'test': 'https://example.org/'
+    }
+  })
+  assert.equal(res['@context'].test, 'https://example.org/')
+})
+
+runner.test('simple query is accepted', async () => {
+  await db.put({
+    '@context': {
+      'test': 'https://example.org/',
+      'Book': 'https://example.org/Book',
+      'title': 'https://example.org/title'
+    },
+    "test": {
+      "@type": "Book",
+      "title": "The Little Engine That Could"
+    }
+  })
+  const res = await jldq(db, {
+    '@context': {
+      'test': 'https://example.org/'
+    },
+    "test": {
+      "@type": "Book"
+    }
+  })
+  assert.equal(res['@context'].test, 'https://example.org/')
+  assert.equal(res['@graph'].test.title, "The Little Engine That Could")
 })
 
