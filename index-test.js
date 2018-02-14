@@ -3,7 +3,10 @@ const lg = require('levelgraph')
 const TestRunner = require('test-runner')
 const runner = new TestRunner()
 const memdb = require('memdb')
-const db = lg(memdb())
+const addManifest = require('levelgraph-jsonld-manifest')
+const lgjsonld = require('levelgraph-jsonld')
+const levelPromise = require('level-promise')
+const db = levelPromise(addManifest(lgjsonld(lg(memdb()))))
 const assert = require('assert')
 
 runner.test('no arguments is rejected', async () => {
