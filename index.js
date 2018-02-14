@@ -85,7 +85,7 @@ module.exports = async function query(db, frame, options) {
 
   // frame the subjects
   const framed = [];
-  _frame(state, Object.keys(state.subjects).sort(), expandedFrame, framed, null);
+  await _frame(db, state, expandedFrame, framed, null);
 
   // compact result (force @graph option to true, skip expansion,
   // check for linked embeds)
@@ -192,13 +192,13 @@ function _compactIri(activeCtx, iri) {
 /**
  * Frames subjects according to the given frame.
  *
+ * @param db the levelgraph-jsonld instance
  * @param state the current framing state.
- * @param subjects the subjects to filter.
  * @param frame the frame.
  * @param parent the parent subject or top-level array.
  * @param property the parent property, initialized to null.
  */
-function _frame(state, subjects, frame, parent, property) {
+async function _frame(db, state, frame, parent, property) {
   // validate the frame
   _validateFrame(frame);
   frame = frame[0];
@@ -212,7 +212,7 @@ function _frame(state, subjects, frame, parent, property) {
   };
 
   // filter out subjects that match the frame
-  const matches = _filterSubjects(state, subjects, frame, flags);
+  const matches = await _findSubjects(db, state, frame, flags);
 
   // add matches to output
   const ids = Object.keys(matches).sort();
@@ -303,7 +303,7 @@ function _frame(state, subjects, frame, parent, property) {
               const subframe = (prop in frame ?
                 frame[prop][0]['@list'] : _createImplicitFrame(flags));
               // recurse into subject reference
-              _frame(state, [o['@id']], subframe, list, '@list');
+              await _frame(db, state, [o['@id']], subframe, list, '@list');
             } else {
               // include other values automatically
               _addFrameOutput(list, '@list', _clone(o));
@@ -315,7 +315,7 @@ function _frame(state, subjects, frame, parent, property) {
         if (_isSubjectReference(o)) {
           // recurse into subject reference
           const subframe = (prop in frame ?  frame[prop] : _createImplicitFrame(flags));
-          _frame(state, [o['@id']], subframe, output, prop);
+          await _frame(db, state, [o['@id']], subframe, output, prop);
         } else {
           // include other values automatically
           _addFrameOutput(output, prop, _clone(o));
@@ -336,7 +336,7 @@ function _frame(state, subjects, frame, parent, property) {
       const next = frame[prop][0];
       const omitDefaultOn = _getFrameFlag(next, options, 'omitDefault');
       if (!omitDefaultOn && !(prop in output)) {
-        const preserve = '@null';
+        let preserve = '@null';
         if ('@default' in next) {
           preserve = _clone(next['@default']);
         }
@@ -408,7 +408,7 @@ function _clone(obj) {
  */
 function _addFrameOutput(parent, property, output) {
   if (typeof parent == 'object') {
-    jsonld.addValue(parent, property, output, {
+    addValue(parent, property, output, {
       propertyIsArray: true
     });
   } else {
@@ -622,6 +622,28 @@ function _validateFrame(frame) {
 }
 
 /**
+ * Find subjects that match the current frame
+ *
+ * @param db the levelgraph-jsonld instance
+ * @param state the current framing state.
+ * @param frame the parsed frame
+ * @param flags the frame flags
+ *
+ * @return array of subjects
+ */
+async function _findSubjects(db, state, frame, flags) {
+  // If frame has ID, return that?
+  // Otherwise, ???
+  console.warn('x', JSON.stringify(frame, null, 2))
+  await db.search({
+    subject: db.v('subject'),
+    predicate: '',
+    object: ''
+  })
+  return []
+}
+
+/**
  * Returns a map of all of the subjects that match a parsed frame.
  *
  * @param state the current framing state.
@@ -792,7 +814,7 @@ function _removeEmbed(state, id) {
     jsonld.removeValue(parent, property, subject, {
       propertyIsArray: useArray
     });
-    jsonld.addValue(parent, property, subject, {
+    addValue(parent, property, subject, {
       propertyIsArray: useArray
     });
   }
@@ -1025,3 +1047,53 @@ function jsonldcompact(input, ctx) {
   })
 }
 
+/**
+ * Adds a value to a subject. If the value is an array, all values in the
+ * array will be added.
+ *
+ * @param subject the subject to add the value to.
+ * @param property the property that relates the value to the subject.
+ * @param value the value to add.
+ * @param [options] the options to use:
+ *        [propertyIsArray] true if the property is always an array, false
+ *          if not (default: false).
+ *        [allowDuplicate] true to allow duplicates, false not to (uses a
+ *          simple shallow comparison of subject ID or value) (default: true).
+ */
+function addValue(subject, property, value, options) {
+  options = options || {};
+  if(!('propertyIsArray' in options)) {
+    options.propertyIsArray = false;
+  }
+  if(!('allowDuplicate' in options)) {
+    options.allowDuplicate = true;
+  }
+
+  if(Array.isArray(value)) {
+    if(value.length === 0 && options.propertyIsArray &&
+      !(property in subject)) {
+      subject[property] = [];
+    }
+    for(var i = 0; i < value.length; ++i) {
+      addValue(subject, property, value[i], options);
+    }
+  } else if(property in subject) {
+    // check if subject already has value if duplicates not allowed
+    var hasValue = (!options.allowDuplicate &&
+      jsonld.hasValue(subject, property, value));
+
+    // make property an array if value not present or always an array
+    if(!Array.isArray(subject[property]) &&
+      (!hasValue || options.propertyIsArray)) {
+      subject[property] = [subject[property]];
+    }
+
+    // add new value
+    if(!hasValue) {
+      subject[property].push(value);
+    }
+  } else {
+    // add new value as set or single value
+    subject[property] = options.propertyIsArray ? [value] : value;
+  }
+};
