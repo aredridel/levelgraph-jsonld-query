@@ -66,6 +66,7 @@ runner.test('simple query is accepted', async () => {
       "title": "test",
     },
   })
+  console.warn(res)
   assert.equal(res['@context'].test, 'https://example.org/')
   assert.equal(res['@graph'].test.title, "The Little Engine That Could")
 })
