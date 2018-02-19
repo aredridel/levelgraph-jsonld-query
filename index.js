@@ -211,11 +211,11 @@ async function _frame(db, state, frame, parent, property) {
     requireAll: _getFrameFlag(frame, options, 'requireAll')
   };
 
-  // filter out subjects that match the frame
+  // find subjects that match the frame
   const matches = await _findSubjects(db, state, frame, flags);
 
   // add matches to output
-  const ids = Object.keys(matches).sort();
+  const ids = matches.sort();
   for (let idx = 0; idx < ids.length; ++idx) {
     const id = ids[idx];
     const subject = matches[id];
@@ -632,15 +632,16 @@ function _validateFrame(frame) {
  * @return array of subjects
  */
 async function _findSubjects(db, state, frame, flags) {
-  // If frame has ID, return that?
-  // Otherwise, ???
-  console.warn('x', JSON.stringify(frame, null, 2))
-  await db.search({
-    subject: db.v('subject'),
-    predicate: '',
-    object: ''
+  const subject = frame['@id'] || db.v('s') 
+  const query = Object.keys(frame).map(predicate => {
+    const triple = {
+      subject,
+      predicate: predicate == '@type' ? 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' : predicate,
+    }
+    return triple
   })
-  return []
+  const x = await db.search(query)
+  return x.map(t => t.subject)
 }
 
 /**
