@@ -38,6 +38,7 @@
   },
   "dependencies": {
     "aproba": "^1.2.0",
+    "p-reduce": "^1.0.0",
     "test-runner": "^0.5.0"
   },
   "teenytest": {

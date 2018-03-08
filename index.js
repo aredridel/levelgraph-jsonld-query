@@ -1,6 +1,7 @@
-const jsonld = require('jsonld').promises;
+const jsonld = require('jsonld').promises
 const jsonldraw = require('jsonld')
 const aproba = require('aproba')
+const preduce = require('p-reduce')
 
 /**
  * Query using a JSON-LD frame
@@ -8,7 +9,6 @@ const aproba = require('aproba')
  * @param frame the JSON-LD frame to use.
  * @param [options] the framing options.
  *          [base] the base IRI to use.
- *          [expandContext] a context to expand with.
  *          [embed] default @embed flag: '@last', '@always', '@never', '@link'
  *            (default: '@last').
  *          [explicit] default @explicit flag (default: false).
@@ -72,6 +72,8 @@ module.exports = async function query(db, frame, options) {
   opts.keepFreeFloatingNodes = true;
   const expandedFrame = await jsonld.expand(frame, opts)
 
+  console.warn('expanded frame', JSON.stringify(expandedFrame[0], null, 2))
+
   const state = {
     subjects: {},
     options: options,
@@ -102,6 +104,8 @@ module.exports = async function query(db, frame, options) {
   compacted[graph] = _removePreserve(activeCtx, compacted[graph], opts);
 
   return compacted;
+  
+
 };
 
 /**
@@ -267,15 +271,20 @@ async function _frame(db, state, frame, parent, property) {
     state.subjectStack.push(subject);
 
     // iterate over subject properties
-    const props = Object.keys(subject).sort();
+    // FIXME optimize when flags.explicit is on
+    const props = await db.search([ 
+      { subject, predicate: db.v('predicate'), object: db.v('object') }
+    ])
     for (let i = 0; i < props.length; i++) {
-      const prop = props[i];
+      const prop = props[i].predicate;
 
       // copy keywords to output
+      /* FIXME
       if (_isKeyword(prop)) {
         output[prop] = _clone(subject[prop]);
         continue;
       }
+      */
 
       // explicit is on and property isn't in the frame, skip processing
       if (flags.explicit && !(prop in frame)) {
@@ -283,12 +292,12 @@ async function _frame(db, state, frame, parent, property) {
       }
 
       // add objects
-      const objects = subject[prop];
+      const objects = [props[i].object]
       for (let oi = 0; oi < objects.length; ++oi) {
         const o = objects[oi];
 
         // recurse into list
-        if (o && ('@list' in o)) {
+        if (typeof o == 'object' && ('@list' in o)) {
           // add empty list
           const list = {
             '@list': []
@@ -392,6 +401,7 @@ function _isKeyword(v) {
 }
 
 function _clone(obj) {
+  if (typeof obj == 'string') return obj
   const out = {}
   for (let k in obj) {
     out[k] = obj[k]
@@ -1098,3 +1108,79 @@ function addValue(subject, property, value, options) {
     subject[property] = options.propertyIsArray ? [value] : value;
   }
 };
+  
+async function fetchExpandedTriples(db, iri, memo = {}) {
+  const triples = await db.get({ subject: iri })
+  
+  if (triples.length === 0) return null
+
+  const nodes = await preduce(triples, memo, function(acc, triple) {
+    let key;
+
+    if (!acc[triple.subject] && !N3Util.isBlank(triple.subject)) {
+      acc[triple.subject] = { '@id': triple.subject };
+    } else if (N3Util.isBlank(triple.subject) && !acc[triple.subject]) {
+      acc[triple.subject] = {};
+    }
+
+    if (triple.predicate === RDFTYPE) {
+      insertOrPush(acc[triple.subject], '@type', triple.object)
+      return acc
+    } else if (!N3Util.isBlank(triple.object)) {
+      let object = {};
+      if (N3Util.isIRI(triple.object)) {
+        object['@id'] = triple.object;
+      } else if (N3Util.isLiteral(triple.object)) {
+        object = getCoercedObject(triple.object);
+      }
+      if(object['@id']) {
+        // expanding object iri
+        const expanded = fetchExpandedTriples(db, triple.object)
+
+        if (expanded !== null) {
+          insertOrPush(acc[triple.subject], triple.predicate, expanded[triple.object])
+        } else {
+          insertOrPush(acc[triple.subject], triple.predicate, object)
+        }
+        return acc
+      }
+
+      insertOrPush(acc[triple.subject], triple.predicate, object)
+      return acc
+    } else {
+      // deal with blanks
+      const expanded = fetchExpandedTriples(db, triple.object)
+      if (expanded !== null) {
+        insertOrPush(acc[triple.subject], triple.predicate, expanded[triple.object])
+      } else {
+        insertOrPush(acc[triple.subject], triple.predicate, object)
+      }
+      return acc
+    }
+  })
+  
+  if (nodes[iri][RDFFIRST]) {
+    const list = { '@list': gatherList(nodes[iri]) }
+    nodes[iri] = list
+  }
+}
+
+function insertOrPush(obj, key, val) {
+ if (!obj[key]) obj[key] = []
+ if (!Array.isArray(obj[key])) obj[key] = [obj[key]]
+ obj[key] = obj.key.concat(val)
+}
+  
+function gatherList(node) {
+  const list = [].concat(node[RDFFIRST])
+
+  if (node[RDFREST]) {
+    if (node[RDFREST][0] && node[RDFREST][0]['@list']) {
+      return list.concat(node[RDFREST][0]['@list'])
+    } else if (!(node[RDFREST][0] && node[RDFREST][0]['@id'] && node[RDFREST][0]['@id'] == RDFNIL)) {
+      return list.concat(node[RDFREST])
+    }
+  } else {
+    return list
+  }
+}
