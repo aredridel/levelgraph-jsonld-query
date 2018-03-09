@@ -45,29 +45,28 @@ runner.test('null query is accepted', async () => {
 runner.test('simple query is accepted', async () => {
   await db.jsonld.put({
     '@context': {
-      'test': 'https://example.org/',
+      'item': 'https://example.org/item',
       'Book': 'https://example.org/Book',
       'title': 'https://example.org/title',
     },
-    "test": {
+    "item": {
       "@type": "Book",
       "title": "The Little Engine That Could",
     }
   })
+  console.warn('xxx', await db.get({}))
   const res = await jldq(db, {
     '@context': {
-      'test': 'https://example.org/',
-      'test2': 'https://example.org/test2',
+      'item': 'https://example.org/item',
       'Book': 'https://example.org/Book',
       'title': 'https://example.org/title',
     },
-    "test": {
-      "@type": "Book",
-      "title": "test",
+    "item": {
+      "@type": "Book"
     },
   })
-  console.warn(res)
-  assert.equal(res['@context'].test, 'https://example.org/')
-  assert.equal(res['@graph'].test.title, "The Little Engine That Could")
+  console.warn(JSON.stringify(res, null, 2))
+  assert.equal(res['@context'].item, 'https://example.org/item')
+  assert.equal(res['@graph'][0].item.title, "The Little Engine That Could")
 })
 
