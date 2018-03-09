@@ -122,18 +122,17 @@ async function matchResults(db, subject, frameUnit) {
 
   const expanded = await preduce(results, async (acc, {subject, predicate, object}) => {
     const prop = compactKeywords(predicate)
-    // FIXME: multiple values for a single predicate
     if (N3Util.isIRI(object) || N3Util.isBlank(object)) {
       if (frameUnit[predicate]) {
         const expanded = flatten(await pmap(frameUnit[predicate], (subFrameUnit) => expandFrameUnit(db, subFrameUnit, object)))
         console.warn('eeee', expanded)
-        acc[prop] = expanded
+        addProp(acc, prop, expanded)
       } else {
         const expanded = await expandFrameUnit(db, {}, object)
-        acc[prop] = expanded.length ? expanded : object
+        addProp(acc, prop, expanded.length ? expanded : object)
       }
     } else{
-      acc[prop] = object
+      addProp(acc, prop, object)
     }
 
     console.warn('prop', predicate, acc[prop])
@@ -192,4 +191,9 @@ function compactKeywords(predicate) {
 
 function flatten(arr) {
   return arr.reduce((acc, e) => acc.concat(e), [])
+}
+
+function addProp(obj, prop, value) {
+  if (!obj[prop]) obj[prop] = []
+  obj[prop].push(value)
 }
