@@ -3,6 +3,7 @@ const jsonldraw = require('jsonld')
 const aproba = require('aproba')
 const preduce = require('p-reduce')
 const pmap = require('p-map')
+const debug = require('util').debuglog('levelgraph-jsonld-query')
 const N3Util = require('n3/lib/N3Util')
 const RDFTYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
 const RDFFIRST = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first'
@@ -80,7 +81,7 @@ module.exports = async function query(db, frame, options) {
   opts.keepFreeFloatingNodes = true;
   const expandedFrame = await jsonld.expand(frame, opts)
 
-  console.warn('expanded frame', JSON.stringify(expandedFrame[0], null, 2))
+  debug('expanded frame', JSON.stringify(expandedFrame[0], null, 2))
 
   const fetched = await pmap(expandedFrame, (frameUnit) => expandFrameUnit(db, frameUnit))
 
@@ -88,7 +89,7 @@ module.exports = async function query(db, frame, options) {
 }
 
 async function expandFrameUnit(db, frameUnit, subject) {
-  console.warn('expanding', frameUnit, subject)
+  debug('expanding', frameUnit, subject)
   if (subject && frameUnit['@id'] && frameUnit['@id'] != subject) return null
   if (!subject) {
     subject = db.v('subject')
@@ -101,19 +102,19 @@ async function expandFrameUnit(db, frameUnit, subject) {
       predicate
     }
   }))
-  console.warn('rrrr', results)
+  debug('rrrr', results)
   results.forEach(e => {
     if (!e.subject)
       e.subject = subject
   })
   const out = await pmap(results, ({subject}) => matchResults(db, subject, frameUnit))
 
-  console.warn('www', out)
+  debug('www', out)
   return out
 }
 
 async function matchResults(db, subject, frameUnit) {
-  console.warn('matching', subject, frameUnit)
+  debug('matching', subject, frameUnit)
   const predicates = Object.keys(frameUnit)
   const results = frameUnit['@explicit'] ? await preduce(predicates, async (acc, predicateOrKeyword) => {
     if (isKeyword(predicateOrKeyword) && predicateOrKeyword != '@type') return acc
@@ -133,7 +134,7 @@ async function matchResults(db, subject, frameUnit) {
     if (N3Util.isIRI(object) || N3Util.isBlank(object)) {
       if (frameUnit[predicate]) {
         const expanded = flatten(await pmap(frameUnit[predicate], (subFrameUnit) => expandFrameUnit(db, subFrameUnit, object)))
-        console.warn('eeee', expanded)
+        debug('eeee', expanded)
         addProp(acc, prop, expanded)
       } else {
         const expanded = await expandFrameUnit(db, {}, object)
@@ -143,11 +144,11 @@ async function matchResults(db, subject, frameUnit) {
       addProp(acc, prop, getCoercedObject(object))
     }
 
-    console.warn('prop', predicate, acc[prop])
+    debug('prop', predicate, acc[prop])
     return acc
   }, {})
 
-  console.warn('yyy', expanded)
+  debug('yyy', expanded)
   return expanded
 }
 

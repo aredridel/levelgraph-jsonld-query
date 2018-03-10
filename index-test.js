@@ -8,6 +8,7 @@ const lgjsonld = require('levelgraph-jsonld')
 const levelPromise = require('level-promise')
 const db = levelPromise(addManifest(lgjsonld(lg(memdb()))))
 const assert = require('assert')
+const debug = require('util').debuglog('levelgraph-jsonld-query')
 
 runner.test('no arguments is rejected', async () => {
   try {
@@ -54,7 +55,7 @@ runner.test('simple query is accepted', async () => {
       "title": "The Little Engine That Could",
     }
   })
-  console.warn('xxx', await db.get({}))
+  debug('xxx', await db.get({}))
   const res = await jldq(db, {
     '@context': {
       'item': 'https://example.org/item',
@@ -65,8 +66,7 @@ runner.test('simple query is accepted', async () => {
       "@type": "Book"
     },
   })
-  console.warn(JSON.stringify(res, null, 2))
+  debug(JSON.stringify(res, null, 2))
   assert.equal(res['@context'].item, 'https://example.org/item')
   assert.equal(res['@graph'][0].item.title, "The Little Engine That Could")
 })
-
