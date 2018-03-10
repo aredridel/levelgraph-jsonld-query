@@ -5,6 +5,11 @@ const preduce = require('p-reduce')
 const pmap = require('p-map')
 const N3Util = require('n3/lib/N3Util')
 const RDFTYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+const RDFFIRST = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first'
+const RDFREST = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest'
+const RDFNIL = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil'
+const RDFLANGSTRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#langString'
+const XSDTYPE = 'http://www.w3.org/2001/XMLSchema#'
 
 /**
  * Query using a JSON-LD frame
@@ -98,7 +103,8 @@ async function expandFrameUnit(db, frameUnit, subject) {
   }))
   console.warn('rrrr', results)
   results.forEach(e => {
-    if (!e.subject) e.subject = subject
+    if (!e.subject)
+      e.subject = subject
   })
   const out = await pmap(results, ({subject}) => matchResults(db, subject, frameUnit))
 
@@ -109,7 +115,7 @@ async function expandFrameUnit(db, frameUnit, subject) {
 async function matchResults(db, subject, frameUnit) {
   console.warn('matching', subject, frameUnit)
   const predicates = Object.keys(frameUnit)
-  const results = frameUnit['@explicit'] ? await preduce(predicates, async (acc, predicateOrKeyword) => { 
+  const results = frameUnit['@explicit'] ? await preduce(predicates, async (acc, predicateOrKeyword) => {
     if (isKeyword(predicateOrKeyword) && predicateOrKeyword != '@type') return acc
     const predicate = expandKeywords(predicateOrKeyword)
     const triples = await db.get({
@@ -118,7 +124,9 @@ async function matchResults(db, subject, frameUnit) {
     })
 
     return acc.concat(triples)
-  }) : await db.get({subject})
+  }) : await db.get({
+    subject
+  })
 
   const expanded = await preduce(results, async (acc, {subject, predicate, object}) => {
     const prop = compactKeywords(predicate)
@@ -131,14 +139,14 @@ async function matchResults(db, subject, frameUnit) {
         const expanded = await expandFrameUnit(db, {}, object)
         addProp(acc, prop, expanded.length ? expanded : object)
       }
-    } else{
-      addProp(acc, prop, object)
+    } else {
+      addProp(acc, prop, getCoercedObject(object))
     }
 
     console.warn('prop', predicate, acc[prop])
     return acc
   }, {})
-    
+
   console.warn('yyy', expanded)
   return expanded
 }
@@ -194,6 +202,52 @@ function flatten(arr) {
 }
 
 function addProp(obj, prop, value) {
-  if (!obj[prop]) obj[prop] = []
+  if (!obj[prop])
+    obj[prop] = []
   obj[prop].push(value)
+}
+
+// http://json-ld.org/spec/latest/json-ld-api/#data-round-tripping
+function getCoercedObject(object) {
+  var TYPES = {
+    PLAIN: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral',
+    BOOLEAN: XSDTYPE + 'boolean',
+    INTEGER: XSDTYPE + 'integer',
+    DOUBLE: XSDTYPE + 'double',
+    STRING: XSDTYPE + 'string',
+  };
+  var value = N3Util.getLiteralValue(object);
+  var type = N3Util.getLiteralType(object);
+  var coerced = {};
+  switch (type) {
+    case TYPES.STRING:
+    case TYPES.PLAIN:
+      coerced['@value'] = value;
+      break;
+    case RDFLANGSTRING:
+      coerced['@value'] = value;
+      coerced['@language'] = N3Util.getLiteralLanguage(object);
+      break;
+    case TYPES.INTEGER:
+      coerced['@value'] = parseInt(value, 10);
+      break;
+    case TYPES.DOUBLE:
+      coerced['@value'] = parseFloat(value);
+      break;
+    case TYPES.BOOLEAN:
+      if (value === 'true' || value === '1') {
+        coerced['@value'] = true;
+      } else if (value === 'false' || value === '0') {
+        coerced['@value'] = false;
+      } else {
+        throw new Error('value not boolean!');
+      }
+      break;
+    default:
+      coerced = {
+        '@value': value,
+        '@type': type
+      };
+  }
+  return coerced;
 }
