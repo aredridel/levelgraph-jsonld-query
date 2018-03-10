@@ -203,8 +203,9 @@ function flatten(arr) {
 }
 
 function addProp(obj, prop, value) {
-  if (!obj[prop])
+  if (!obj[prop]) {
     obj[prop] = []
+  }
   obj[prop].push(value)
 }
 
