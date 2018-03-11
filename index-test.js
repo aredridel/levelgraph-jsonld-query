@@ -10,6 +10,7 @@ const db = levelPromise(addManifest(lgjsonld(lg(memdb()))))
 const assert = require('assert')
 const debug = require('util').debuglog('levelgraph-jsonld-query')
 
+//*
 runner.test('no arguments is rejected', async () => {
   try {
     await jldq()
@@ -69,4 +70,39 @@ runner.test('simple query is accepted', async () => {
   debug(JSON.stringify(res, null, 2))
   assert.equal(res['@context'].item, 'https://example.org/item')
   assert.equal(res['@graph'][0].item.title, "The Little Engine That Could")
+})
+//*/
+
+runner.test('query for two records', async () => {
+  await db.jsonld.put({
+    '@context': {
+      'item': 'https://example.org/item',
+      'Movie': 'https://example.org/Movie',
+      'title': 'https://example.org/title',
+    },
+    "item": [
+      {
+        "@type": "Movie",
+        "title": "Black Panther",
+      },
+      {
+        "@type": "Movie",
+        "title": "A Wrinkle in Time",
+      }
+    ]
+  })
+  debug('xxx', await db.get({}))
+  const res = await jldq(db, {
+    '@context': {
+      'item': 'https://example.org/item',
+      'Movie': 'https://example.org/Movie',
+      'title': 'https://example.org/title',
+    },
+    "item": {
+      "@type": "Movie"
+    },
+  })
+  debug(JSON.stringify(res, null, 2))
+  assert.equal(res['@context'].item, 'https://example.org/item')
+  assert.equal(res['@graph'][0].item.title, "Black Panther")
 })
