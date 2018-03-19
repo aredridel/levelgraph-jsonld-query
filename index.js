@@ -28,33 +28,30 @@ const XSDTYPE = 'http://www.w3.org/2001/XMLSchema#'
 module.exports = async function query(db, frame, options) {
   aproba('OO|OOO', arguments)
 
-  options = options || {};
+  const opts = _clone(options || {});
 
   // set default options
-  if (!('base' in options))
-    options.base = '';
+  if (!('base' in opts))
+    opts.base = '';
 
-  if (!('documentLoader' in options))
-    options.documentLoader = jsonld.loadDocument;
+  if (!('documentLoader' in opts))
+    opts.documentLoader = jsonld.loadDocument;
 
-  if (!('embed' in options))
-    options.embed = '@last';
+  if (!('embed' in opts))
+    opts.embed = '@last';
 
-  if (!('requireAll' in options))
-    options.requireAll = true;
+  if (!('requireAll' in opts))
+    opts.requireAll = true;
 
-  options.explicit = options.explicit || false;
+  opts.explicit = opts.explicit || false;
 
-  options.omitDefault = options.omitDefault || false;
+  opts.omitDefault = opts.omitDefault || false;
 
   const remoteFrame = {
     contextUrl: null,
     documentUrl: null,
     document: frame
   };
-
-  // preserve frame context and add any Link header context
-  frame = remoteFrame.document;
 
   let ctx;
   if (frame) {
@@ -76,7 +73,6 @@ module.exports = async function query(db, frame, options) {
   }
 
   // expand frame
-  const opts = _clone(options);
   opts.isFrame = true;
   opts.keepFreeFloatingNodes = true;
   const expandedFrame = await jsonld.expand(frame, opts)
