@@ -95,6 +95,7 @@ async function expandFrameUnit(db, frameUnit, subject) {
     subject = db.v('subject')
   }
   const predicates = Object.keys(frameUnit)
+  debug('xxx', await db.get({}))
   const results = await db.search(predicates.map(predicateOrKeyword => {
     const predicate = expandKeywords(predicateOrKeyword)
     return {
@@ -102,14 +103,14 @@ async function expandFrameUnit(db, frameUnit, subject) {
       predicate
     }
   }))
-  debug('rrrr', results)
+  debug('found', results.map(r => r.subject), 'for', subject)
   results.forEach(e => {
     if (!e.subject)
       e.subject = subject
   })
   const out = await pmap(results, ({subject}) => matchResults(db, subject, frameUnit))
 
-  debug('www', out)
+  debug('matched', out, 'for', subject)
   return out
 }
 
@@ -134,7 +135,6 @@ async function matchResults(db, subject, frameUnit) {
     if (N3Util.isIRI(object) || N3Util.isBlank(object)) {
       if (frameUnit[predicate]) {
         const expanded = flatten(await pmap(frameUnit[predicate], (subFrameUnit) => expandFrameUnit(db, subFrameUnit, object)))
-        debug('eeee', expanded)
         addProp(acc, prop, expanded)
       } else {
         const expanded = await expandFrameUnit(db, {}, object)
@@ -148,7 +148,6 @@ async function matchResults(db, subject, frameUnit) {
     return acc
   }, {})
 
-  debug('yyy', expanded)
   return expanded
 }
 

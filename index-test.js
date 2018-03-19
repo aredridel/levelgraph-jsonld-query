@@ -100,7 +100,6 @@ runner.test('simple query is accepted', async () => {
       "title": "The Little Engine That Could",
     }
   })
-  debug('xxx', await db.get({}))
   const res = await jldq(db, {
     '@context': {
       'item': 'https://example.org/item',
