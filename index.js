@@ -85,7 +85,7 @@ module.exports = async function query(db, frame, options) {
 }
 
 async function expandFrameUnit(db, frameUnit, subject) {
-  debug('expanding', frameUnit, subject)
+  debug('expanding', JSON.stringify(frameUnit, null, 2), 'for', subject)
   if (subject && frameUnit['@id'] && frameUnit['@id'] != subject) return null
   if (!subject) {
     subject = db.v('subject')
