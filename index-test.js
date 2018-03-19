@@ -88,27 +88,20 @@ runner.test('null query is accepted', async () => {
 })
 
 runner.test('simple query is accepted', async () => {
+  await new Promise((y, n) => setTimeout(y, 150))
   const db = makeDB()
   await db.jsonld.put({
-    '@context': {
-      'item': 'https://example.org/item',
-      'Book': 'https://example.org/Book',
-      'title': 'https://example.org/title',
-    },
-    "item": {
+    '@context': context,
+    "item": [{
       "@type": "Book",
       "title": "The Little Engine That Could",
-    }
+    }]
   })
   const res = await jldq(db, {
-    '@context': {
-      'item': 'https://example.org/item',
-      'Book': 'https://example.org/Book',
-      'title': 'https://example.org/title',
-    },
-    "item": {
+    '@context': context,
+    "item": [{
       "@type": "Book"
-    },
+    }],
   })
   debug(JSON.stringify(res, null, 2))
   assert.equal(res['@context'].item, 'https://example.org/item')
