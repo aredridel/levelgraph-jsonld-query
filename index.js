@@ -91,14 +91,22 @@ async function expandFrameUnit(db, frameUnit, subject) {
     subject = db.v('subject')
   }
   const predicates = Object.keys(frameUnit)
-  debug('xxx', await db.get({}))
-  const results = await db.search(predicates.map(predicateOrKeyword => {
+
+  let previousSubject;
+  const query = predicates.map(predicateOrKeyword => {
     const predicate = expandKeywords(predicateOrKeyword)
     return {
       subject,
-      predicate
+      predicate,
+      filter: triple => {
+        if (triple.subject == previousSubject) return false
+        previousSubject = triple.subject
+        return true
+      }
     }
-  }))
+  })
+
+  const results = await db.search(query)
   debug('found', results.map(r => r.subject), 'for', subject)
   results.forEach(e => {
     if (!e.subject)
