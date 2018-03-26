@@ -88,7 +88,6 @@ runner.test('null query is accepted', async () => {
 })
 
 runner.test('simple query is accepted', async () => {
-  await new Promise((y, n) => setTimeout(y, 150))
   const db = makeDB()
   await db.jsonld.put({
     '@context': context,
@@ -107,4 +106,3 @@ runner.test('simple query is accepted', async () => {
   assert.equal(res['@context'].item, 'https://example.org/item')
   assert.equal(res['@graph'][0].item.title, "The Little Engine That Could")
 })
-//*/
