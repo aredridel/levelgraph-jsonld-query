@@ -47,7 +47,9 @@ runner.test('query for two records', async () => {
   debug(JSON.stringify(context, null, 2))
   debug(JSON.stringify(res, null, 2))
   assert.equal(res['@context'].item, 'https://example.org/item')
-  assert.equal(res['@graph'][0].item.title, "Black Panther")
+  assert.equal(res['@graph'][0].item[0].title, "Black Panther")
+  assert.equal(res['@graph'][0].item[1].title, "A Wrinkle in Time")
+  assert.equal(res['@graph'][0].item.length, 2)
 })
 
 runner.test('no arguments is rejected', async () => {
