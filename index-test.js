@@ -60,7 +60,6 @@ runner.test('no arguments is rejected', async () => {
   }
 })
 
-//*
 runner.test('only one argument is rejected', async () => {
   const db = makeDB()
   try {
